@@ -1,0 +1,166 @@
+;; setup window dims
+
+(bind-val width float 200.)
+(bind-val height float 800.)
+
+(sys:load "The-Nature-of-Livecoding/processing.xtm")
+
+;;setup sound
+(sys:load "libs/external/instruments_ext.xtm")
+
+;;fmsynth
+(define-instrument fmsynth fmsynth_note_c fmsynth_fx)
+
+;;load a mini drum sampler
+(define sample-path "/Users/jasonlevine/Code/extempore/assets/")
+(define drum-path (string-append sample-path "salamander/OH/"))
+(define-sampler drums sampler_note_hermite_c sampler_fx)
+
+(define drum-sample-data
+  (list
+    (list "kick_OH_F_9.wav" 10)
+    (list "hihatClosed_OH_F_20.wav" 11)
+    (list "hihatOpen_OH_FF_6.wav" 12)
+    (list "snareStick_OH_F_1.wav" 13)))
+
+(define add-drum-sample
+  (lambda (file-name const-name)
+    (set-sampler-index drums
+                       (string-append drum-path file-name)
+                       const-name
+                       0 0 0 1)))
+
+(define add-drum-samples
+  (lambda (data)
+    (map (lambda (sample-pair)
+           (add-drum-sample (car sample-pair) (cadr sample-pair)))
+         data)))
+
+(add-drum-samples drum-sample-data)
+
+
+
+;;dsp
+(bind-func dsp:[SAMPLE,SAMPLE,i64,i64,SAMPLE*]* 
+    (lambda (in:SAMPLE time:i64 chan:i64 dat:SAMPLE*)
+      (cond ((< chan 2.0)
+                (fmsynth in time chan dat)
+                (drums in time chan dat))
+            (else 0.0))))
+
+(dsp:set! dsp)
+
+
+
+(play-note (now) fmsynth 60 30 44100)
+
+
+(bind-val dargs float* 2)
+(xtmX (pset! dargs 0 1.0))
+(xtmX (pset! dargs 1 10.0))
+
+(xtmX (xtm_play_note (now) drums (midi2frq (convert 10)) 0.5 44100 0 dargs))
+
+
+;; setup variables
+
+(bind-val x float 100.0)
+(bind-val y float 100.0)
+(bind-val xspeed float 2.5)
+(bind-val yspeed float 2.0)
+
+;;high level set functions for livecoding
+(bind-func set_xspeed
+	(lambda (speed:float)
+		(set! xspeed speed)))
+
+(bind-func set_yspeed
+	(lambda (speed:float)
+		(set! yspeed speed)))
+
+
+(bind-func set_x
+	(lambda (_x:float)
+		(set! x _x)))
+
+(bind-func set_y
+	(lambda (_y:float)
+		(set! y _y)))
+
+;;auto decayer
+(bind-func make_decr
+	(lambda ()
+		(let ((val:float 0.0) (decr:float 0.9))
+			(lambda ()
+				(set! val (* decr val))))))
+
+
+(bind-func bg_decr (make_decr))
+(xtmX (bg_decr.decr 0.97:float))
+
+(bind-func fill_decr (make_decr))
+(xtmX (fill_decr.decr 0.97:float))
+
+(bind-func stroke_decr (make_decr))
+
+
+(set_x 10.)
+
+(set_xspeed 12.0)
+(set_yspeed 10.0)
+
+
+
+
+(bind-func draw
+    (lambda ()
+      ;; draw background
+      (bg_decr)
+      (fill_decr)
+      (stroke_decr)
+
+ 			(background (bg_decr.val) (bg_decr.val) 0.0)
+
+  		;; update the ball position
+
+
+  	
+  		(set! x (+ x xspeed))
+  		(set! y (+ y yspeed))
+
+
+
+  		(if (or (> x width) (< x 0.0))
+  			(begin
+  				(xtm_play_note (now) drums (midi2frq (convert 11)) 0.25 44100 0 dargs)
+  				(stroke_decr.val 1.0:float)))
+
+  		(if (> y height)
+  			(begin 
+  				(xtm_play_note (now) drums (midi2frq (convert 10)) 1.0 44100 0 dargs)
+  				(fill_decr.val 1.0:float)
+  				(set! xspeed 13.0:float)))
+
+  		(if (< y 0.0) 
+  			(begin
+  				(xtm_play_note (now) drums (midi2frq (convert 13)) 1.0 44100 0 dargs)
+  				(bg_decr.val 1.0:float)
+  				(set! xspeed 16.0:float)))
+
+  		(if (or (> x width) (< x 0.0))
+  			(set! xspeed (* xspeed -1.0)))
+
+  		(if (or (> y height) (< y 0.0))
+  			(set! yspeed (* yspeed -1.0)))
+
+      ;; draw the ball
+      (fill 0.0 0.5 0.5 (fill_decr.val))
+      (stroke (stroke_decr.val) 0.0 0.0 1.0)
+      (stroke_width 4.0)
+      (circle x y 48.0)))
+
+
+
+
+
+
