@@ -114,12 +114,7 @@
 
 (bind-func draw
     (lambda ()
-      ;; draw background
-      (bg_decr)
-      (fill_decr)
-      (stroke_decr)
 
- 			(background (bg_decr.val) (bg_decr.val) 0.0)
 
   		;; update the ball position
 
@@ -152,6 +147,13 @@
 
   		(if (or (> y height) (< y 0.0))
   			(set! yspeed (* yspeed -1.0)))
+
+  		;;decrement decayers
+      (bg_decr)
+      (fill_decr)
+      (stroke_decr)
+			;; draw background
+ 			(background (bg_decr.val) (bg_decr.val) 0.0)
 
       ;; draw the ball
       (fill 0.0 0.5 0.5 (fill_decr.val))
