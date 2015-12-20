@@ -1,37 +1,183 @@
 ;; setup window dims
 
-(bind-val width float 200.)
+(bind-val width float 400.)
 (bind-val height float 200.)
 
 (sys:load "The-Nature-of-Livecoding/processing.xtm")
 
-;; setup variables
+;;setup sound
+(sys:load "libs/core/instruments.xtm")
 
+;;fmsynth
+(define-instrument fmsynth fmsynth_note_c fmsynth_fx)
+
+;;dsp
+(bind-func dsp:[SAMPLE,SAMPLE,i64,i64,SAMPLE*]* 
+    (lambda (in:SAMPLE time:i64 chan:i64 dat:SAMPLE*)
+      (cond ((< chan 2.0)
+                (fmsynth in time chan dat))
+            (else 0.0))))
+
+(dsp:set! dsp)
+
+(bind-val dargs float* 2)
+(xtmX (pset! dargs 0 1.0))
+(xtmX (pset! dargs 1 10.0))
+
+(xtmX (xtm_play_note (now) fmsynth (midi2frq (convert 60)) 0.5 44100 0 dargs))
+
+(bind-func xplaynote
+  (lambda (inst:[SAMPLE,SAMPLE,i64,i64,SAMPLE*]*
+                    pitch:i64 vol:double dur:double)
+    (xtm_play_note  (now)
+                    inst 
+                    (midi2frq (convert pitch)) 
+                    (convert (/ (exp (/ vol 26.222)) 127.0)) 
+                    (dtoi64 (* dur SRd)) 
+                    0 dargs)))
+
+
+;; setup variables
+(bind-val radius float 48.)
 (bind-val location vec 2)
 (bind-val velocity vec 2)
+(bind-val location2 vec 2)
+(bind-val velocity2 vec 2)
 
-(call-as-xtlang (vec2_set location 100. 100.))
-(call-as-xtlang (vec2_set velocity 2. 2.5))
+(bind-val roots |4,i64|)
+(bind-val chord |4,i64|)
+
+(bind-val fill_col1 <float,float,float>)
+(bind-val fill_col2 <float,float,float>)
+(bind-val bg_col <float,float,float>)
+
+
+(bind-func init_vars
+  (lambda ()
+     ; (afill! roots 48 53 55 50)
+    (afill! roots 60 65 67 62)
+    (afill! chord 60 63 67 70)
+    (vec2_set location 150. 50.)
+    (vec2_set location2 350. 50.)
+    (vec2_set velocity 2.0 2.0)
+    (vec2_set velocity2 2.01 2.0)
+    (tfill! fill_col1 0.5 0.5 0.5)
+    (tfill! fill_col2 0.5 0.5 0.5)
+    (tfill! bg_col 1.0 1.0 1.0)))
+
+(init_vars)
+
+(xtmX (vec2_set velocity 60. 40.))
+(xtmX (vec2_set velocity2 30. 50.))
+(xtmX (afill! roots 48 53 55 50))
+(xtmX (afill! roots 60 65 67 62))
+(xtmX (afill! roots 72 77 79 74))
+
+(bind-func offset_col
+  (lambda (offset:i64)
+    (let ((mult (+ 1.0 (* (i64tof offset) 0.1))))
+      (tset! fill_col1 0 (* (tref fill_col2 0) mult))
+      (tset! fill_col1 1 (* (tref fill_col2 1) mult))
+      (tset! fill_col1 2 (* (tref fill_col2 2) mult)))))
+
+(bind-func invert_bg
+  (lambda (r:float g:float b:float)
+      (tset! bg_col 0 (- 1.0 r))
+      (tset! bg_col 1 (- 1.0 g))
+      (tset! bg_col 2 (- 1.0 b))))
 
 
 (bind-func draw
     (lambda ()
       ;; draw background
- 			(fill 1.0 1.0 1.0 0.03)
+ 			(fill (tref bg_col 0) (tref bg_col 1) (tref bg_col 2) 0.03)
       (stroke 1.0 1.0 1.0 0.0)
-      (rect 0. 0. width height)
+      (rectangle 0. 0. width height)
 
   		;; update the ball position
       (vec2_inc location velocity)
 
-  		(if (or (> (vec2_get_x location) width) (< (vec2_get_x location) 0.0))
-  			(vec2_set_x velocity (* (vec2_get_x velocity) -1.0)))
+      ;;play the notes
+      (if (> (vec2_get_x location) (- (* width 0.5) radius))
+        (begin
+          (vec2_set_x velocity (* (vec2_get_x velocity) -1.0))
+          (xplaynote fmsynth (aref chord 0) 40. 1.)
+          (offset_col 0)))
 
-  		(if (or (> (vec2_get_y location) height) (< (vec2_get_y location) 0.0))
-        (vec2_set_y velocity (* (vec2_get_y velocity) -1.0)))
+      (if (< (vec2_get_x location) radius)
+        (begin
+          (vec2_set_x velocity (* (vec2_get_x velocity) -1.0))
+          (xplaynote fmsynth (aref chord 2) 40. 1.)
+          (offset_col 4)))
+
+      (if (> (vec2_get_y location) (- height radius))
+         (begin
+          (vec2_set_y velocity (* (vec2_get_y velocity) -1.0))
+          (xplaynote fmsynth (aref chord 1) 40. 1.)
+          (offset_col 2)))
+
+      (if (< (vec2_get_y location) radius)
+         (begin
+          (vec2_set_y velocity (* (vec2_get_y velocity) -1.0))
+          (xplaynote fmsynth (aref chord 3) 40. 1.)
+          (offset_col 6)))
+
 
       ;; draw the ball
-      (fill 0.68 0.68 0.68 1.0)
+      (fill (tref fill_col1 0) (tref fill_col1 1) (tref fill_col1 2) 1.0)
       (stroke 0.0 0.0 0.0 1.0)
       (stroke_width 2.0)
-      (circle (vec2_get_x location) (vec2_get_y location) 48.0)))
+      (circle (vec2_get_x location) (vec2_get_y location) radius)
+
+      ;; --------------ball 2!!!-----
+      ;; update the ball position
+      (vec2_inc location2 velocity2)
+
+      ;;play the notes
+       (if (> (vec2_get_x location2) (- width radius))
+        (begin
+          (vec2_set_x velocity2 (* (vec2_get_x velocity2) -1.0))
+         (xplaynote fmsynth (aref roots 0) 40. 1.)
+         (afill! chord 60 63 67 70)
+         (tfill! fill_col2 0.8 0.4 0.4)
+         (invert_bg 0.8 0.4 0.4)))
+
+       (if (< (vec2_get_x location2) (+ (* width 0.5) radius))
+        (begin
+          (vec2_set_x velocity2 (* (vec2_get_x velocity2) -1.0))
+         (xplaynote fmsynth (aref roots 2) 40. 1.)
+         (afill! chord 67 70 74 77)
+         (tfill! fill_col2 0.7 0.4 0.6)
+         (invert_bg 0.7 0.4 0.6)))
+
+       (if (> (vec2_get_y location2) (- height radius))
+        (begin
+          (vec2_set_y velocity2 (* (vec2_get_y velocity2) -1.0))
+         (xplaynote fmsynth (aref roots 1) 40. 1.)
+         (afill! chord 65 69 72 74)
+         (tfill! fill_col2 0.7 0.7 0.4)
+         (invert_bg 0.7 0.7 0.4)))
+
+      (if (< (vec2_get_y location2) radius)
+        (begin
+          (vec2_set_y velocity2 (* (vec2_get_y velocity2) -1.0))
+         (xplaynote fmsynth (aref roots 3) 40. 1.)
+         (afill! chord 62 65 69 72)
+         (tfill! fill_col2 0.6 0.7 0.4)
+         (invert_bg 0.6 0.7 0.4)))
+
+
+      ;;check bounds
+      ; (if (or (> (vec2_get_x location2) width) (< (vec2_get_x location2) (* width 0.5)))
+      ;   (vec2_set_x velocity2 (* (vec2_get_x velocity2) -1.0)))
+
+      ; (if (or (> (vec2_get_y location2) height) (< (vec2_get_y location2) 0.0))
+      ;   (vec2_set_y velocity2 (* (vec2_get_y velocity2) -1.0)))
+
+      ;; draw the ball
+      (fill (tref fill_col2 0) (tref fill_col2 1) (tref fill_col2 2) 1.0)
+      (stroke 0.0 0.0 0.0 1.0)
+      (stroke_width 2.0)
+      (circle (vec2_get_x location2) (vec2_get_y location2) radius)
+
+      ))
