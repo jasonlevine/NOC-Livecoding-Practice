@@ -7,8 +7,8 @@
 
 ;; setup window dims
 
-(bind-val width float 800.)
-(bind-val height float 200.)
+(bind-val width float 400.)
+(bind-val height float 800.)
 
 (sys:load "The-Nature-of-Livecoding/processing.xtm")
 
@@ -21,18 +21,58 @@
 ;; draw loop
 (bind-func draw
     (lambda ()
-    	(background 1.0 1.0 1.0)
-
     	(vec2_set mouse_pos (mouse_x) (mouse_y))
     	(vec2_dec mouse_pos center)
 
-    	(let ((m:float (vec2_mag mouse_pos)))
-    		(fill 0.0 0.0 0.0 1.0)
-    		(stroke 0.0 0.0 0.0 0.0)
-            (rect 0. 0. m 10.))
 
-    	(translate (/ width 2.) (/ height 2.))
-    	(stroke_width 2.)
-    	(stroke 0. 0. 0. 1.)
-    	(line 0. 0. (vec2_get_x mouse_pos) (vec2_get_y mouse_pos))))
+    	(let ((m:float (vec2_mag mouse_pos))
+            (v1:vec (zalloc 2))
+            (v2:vec (zalloc 2))
+            (v3:vec (zalloc 2)))
+
+            ;bg
+            (background 1.0 (- 1. (/ m 500.)) (- 1. (/ m 400.)))
+
+            ;first line 
+            (nvgResetTransform vg)
+            (translate (/ width 2.) (/ height 2.))
+            (stroke_width 2.)
+            (stroke 0. 0. 0. 1.)
+            (line 0. 0. (vec2_get_x mouse_pos) (vec2_get_y mouse_pos))
+
+            (stroke 0.0 0.0 0.0 1.0)
+            (fill 0.0 0.0 0.0 (/ m 400.))
+            (stroke_width 1.)
+            (circle 0. 0. m)
+            
+            ;;second circle
+            (nvgResetTransform vg)
+            (circle (mouse_x) (mouse_y) (/ m 2.))
+
+            (vec2_set v1 (vec2_get_x mouse_pos) (* -1. (vec2_get_y mouse_pos)))
+            (vec2_scale v1 0.5)
+
+            ;;second line third circle
+            (nvgResetTransform vg)
+            (translate (mouse_x) (mouse_y))
+            (stroke_width 2.)
+            (stroke 0. 0. 0. 1.)
+            (line 0. 0. (vec2_get_x v1) (vec2_get_y v1))
+            (stroke_width 1.)
+            (circle (vec2_get_x v1) (vec2_get_y v1) (/ m 4.))
+
+            (vec2_set v2 (+ (vec2_get_x mouse_pos) (* -1. (vec2_get_x v1)))
+                        (+ (vec2_get_y mouse_pos) (vec2_get_y v1)))
+            (vec2_scale v2 0.5)
+
+            ;;second line third circle
+            (nvgResetTransform vg)
+            (translate (+ (mouse_x) (vec2_get_x v1)) (+ (mouse_y )(vec2_get_y v1)))
+            (stroke_width 2.)
+            (stroke 0. 0. 0. 1.)
+            (line 0. 0. (vec2_get_x v2) (vec2_get_y v2))
+            (stroke_width 1.)
+            (circle (vec2_get_x v2) (vec2_get_y v2) (/ m 8.))
+
+            )))
 
