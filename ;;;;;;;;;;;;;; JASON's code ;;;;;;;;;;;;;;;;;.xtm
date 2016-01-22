@@ -1,0 +1,116 @@
+;;;;;;;;;;;;;; JASON's code ;;;;;;;;;;;;;;;;;
+
+(sys:load "libs/core/math.xtm")
+
+(bind-alias vec float*)
+
+(bind-val location vec 2)
+(bind-val velocity vec 2)
+(bind-val acceleration vec 2)
+(bind-val mass float)
+
+(bind-func vec2_set
+  (lambda (v1:vec x:float y:float)
+    (pset! v1 0 x)
+    (pset! v1 1 y)))
+
+;;vector arithmetic
+(bind-func vec2_inc
+  (lambda (v1:vec v2:vec)
+    (vvsumf v1 v2 2 v1)))
+ 
+(bind-func vec2_dec
+  (lambda (v1:vec v2:vec)
+    (vvsubf v1 v2 2 v1)))
+ 
+(bind-func vec2_scale
+  (lambda (v1:vec scale:float)
+    (pset! v1 0 (* (pref v1 0) scale))
+    (pset! v1 1 (* (pref v1 1) scale))))
+ 
+(bind-func vec2_div
+  (lambda (v1:vec scale:float)
+    (pset! v1 0 (/ (pref v1 0) scale))
+    (pset! v1 1 (/ (pref v1 1) scale)))) 
+
+(bind-func init_mover
+  (lambda ()
+    (vec2_set location 30. 30.)
+    (vec2_set velocity 0. 0.)
+    (vec2_set acceleration 0. 0.)
+    (set! mass 1.0:float)))
+ 
+(xtmX (init_mover))
+
+(bind-func apply_force
+  (lambda (force:vec)
+    (vec2_div force mass)
+    (vec2_inc acceleration force)))
+ 
+(bind-func update
+  (lambda ()
+    (vec2_inc velocity acceleration)
+    (vec2_inc location velocity)
+    (vec2_scale acceleration 0.)))
+
+;;;;;; Add some TOBYNESS! ;;;;;;;;
+
+;; Mover data type: location, velocity, accleration, mass 
+(bind-type Mover <float*,float*,float*,float>)
+
+;; Constructor for the 2-dimensional case
+(bind-func Mover_2D:[Mover*,float,float,float,float,float,float,float]*
+  (lambda (location_x location_y velocity_x velocity_y accel_x accel_y mass)
+    (let
+        ((location (zalloc 2))
+         (velocity (zalloc 2))
+         (accel (zalloc 2)))
+      (pfill! location location_x location_y)
+      (pfill! velocity velocity_x velocity_y)
+      (pfill! accel accel_x accel_y)
+      (Mover location velocity accel mass))))
+
+;; Overload the default constructor
+(bind-poly Mover Mover_2D)
+
+;; Now create an instance with particular initial values
+(bind-val mover Mover* (Mover 30. 30. 0. 0. 0. 0. 80.))
+
+(bind-func apply_force2
+  (lambda (m:Mover* lforce:vec)
+    (let ((lmass:float (tref m 3))
+          (lacceleration:vec (tref m 2)))
+      (vec2_div lforce lmass)
+      (vec2_inc lacceleration lforce))))
+ 
+(bind-func update2
+  (lambda (m:Mover*)
+    (let ((llocation:vec (tref m 0))
+          (lvelocity:vec (tref m 1))
+          (lacceleration:vec (tref m 2)))
+      (vec2_inc lvelocity lacceleration)
+      (vec2_inc llocation lvelocity)
+      (vec2_scale lacceleration 0.))))
+
+;;;;;;;;; run TEST ;;;;;;;;;;;;;
+
+(bind-func performance_test
+  (lambda (cnt:i64)
+    (let ((t1 0.0) (t2 0.0) (t3 0.0)
+          (i 0)
+          (v:float* (alloc 2)))
+      (set! t1 (clock_clock))
+      (dotimes (i 1000000)
+        (pfill! v (random) (random))
+        (apply_force v)
+        (update))
+      (set! t2 (clock_clock))
+      (dotimes (i 1000000)
+        (pfill! v (random) (random))
+        (apply_force2 mover v)
+        (update2 mover))
+      (set! t3 (clock_clock))
+      (println "run:" cnt "jason:" (- t2 t1) "toby:" (- t3 t2)))))
+
+(dotimes (i 10)
+  (performance_test i))

@@ -1,0 +1,97 @@
+(bind-val width float  900.)
+(bind-val height float 200.)
+
+(sys:load "The-Nature-of-Livecoding/processing.xtm")
+
+;;setup sound
+(sys:load "libs/external/instruments_ext.xtm")
+
+
+;;fmsynth
+(define-instrument fmsynth fmsynth_note_c fmsynth_fx)
+
+;;load a mini drum sampler
+(define sample-path "/Users/jasonlevine/Code/extempore/assets/")
+(define drum-path (string-append sample-path "salamander/OH/"))
+(define-sampler drums sampler_note_hermite_c sampler_fx)
+
+(define drum-sample-data
+  (list
+    (list "kick_OH_F_9.wav" 10)
+    (list "hihatClosed_OH_F_20.wav" 11)
+    (list "hihatOpen_OH_FF_6.wav" 12)
+    (list "snareStick_OH_F_1.wav" 13)))
+
+(define add-drum-sample
+  (lambda (file-name const-name)
+    (set-sampler-index drums
+                       (string-append drum-path file-name)
+                       const-name
+                       0 0 0 1)))
+
+(define add-drum-samples
+  (lambda (data)
+    (map (lambda (sample-pair)
+           (add-drum-sample (car sample-pair) (cadr sample-pair)))
+         data)))
+
+(add-drum-samples drum-sample-data)
+
+(bind-val dargs float* 2)
+(xtmX (pset! dargs 0 1.0))
+
+;;load mover 
+(sys:load "NOC-Livecoding-Practice/chp2_forces/NOC_2_1_forces/mover.xtm")
+
+;;setup and initialize vars
+(bind-val mover Mover* (Mover 30. 30. 0. 0. 0. 0. 1.))
+
+;;oscillator
+(bind-func osc_c
+  (lambda (phase)
+    (lambda (amp freq:SAMPLE)
+      (let ((incr (* 2.0 3.1415 (/ freq 44100.))))
+        (set! phase (% (+ phase incr) (* 2.0 3.1415)))
+        (* amp (sin phase))))))
+
+(bind-val pan float 0.5)
+;;dsp
+(bind-func dsp:[SAMPLE,SAMPLE,i64,i64,SAMPLE*]*
+	(let ((osc1 (osc_c 0.0))
+		     (osc2 (osc_c 0.0))) 
+    (lambda (in:SAMPLE time:i64 chan:i64 dat:SAMPLE*)
+      (cond ((= chan 0)
+                (* pan (+ (osc1 (* (osc2 0.5 60.0) 0.5) (height_to_pitch mover 60. 400.))
+                (drums in time chan dat))))
+            ((= chan 1)
+                (* (- 1.0 pan) (+ (osc1 (* (osc2 0.5 90.0) 0.5) (height_to_pitch mover 60. 400.))
+                (drums in time chan dat))))
+            (else 0.0)))))
+
+(dsp:set! dsp)
+
+(bind-func reset
+	(lambda ()
+	 	(vec2_set (tref mover 0) 0. 0.)
+		(vec2_set (tref mover 1) 0. 0.)
+		(vec2_set (tref mover 2) 0. 0.)))
+
+(reset)
+
+(bind-func draw
+	(lambda ()
+		(background 1.0 1.0 1.0)
+			(let ((wind:vec (salloc 2))
+						(gravity:vec (salloc 2)))
+				(vec2_set wind 0.01 0.0)
+				(vec2_set gravity 0.0 0.4)
+
+				(apply_force mover wind)
+				(apply_force mover gravity))
+
+			(update mover)
+			(display mover)
+			(check_edges mover)))
+
+
+
