@@ -1,23 +1,19 @@
 (bind-val width float 800.)
 (bind-val height float 383.)
 
-(sys:load "The-Nature-of-Livecoding/processing.xtm")
-(sys:load "The-Nature-of-Livecoding/chp2_forces/NOC_2_4_forces_friction/mover.xtm")
+(sys:load "The-Nature-of-Livecoding/processing.xtm") 
+;(sys:load "NOC-Livecoding-Practice/chp2_forces/NOC_2_4_forces_friction/audio-setup.xtm")
+(sys:load "NOC-Livecoding-Practice/chp2_forces/NOC_2_4_forces_friction/mover.xtm")
 
-;;setup and initialize vars
 (bind-val movers |5,Mover*|*)
 
-(bind-func setup
-	(lambda ()
-		(doloop (i 5:i64)
-			(aset! movers i (Mover (rand_range 1.0 4.0) (rand_max width) 0.)))))
 
-(setup)
 
+(xtmX (println (vec2_mag (tref (aref movers 0) 1))))
 
 (bind-func draw
 	(lambda ()
-		(background 1.0 1.0 1.0)
+		(background 0.3 0.4 0.3)
 
 		(doloop (i 5)
 			(let ((wind:vec (salloc 2))
@@ -25,8 +21,8 @@
 						(c:float 0.05)
 						(friction:vec (salloc 2)))
 
-				(vec2_set wind 0.01 0.0)
-				(vec2_set gravity 0.0 (* 0.1 (tref (aref movers i) 3)))
+				(vec2_set wind  0.05 0.0)
+				(vec2_set gravity 0.0 (* 0.0 (tref (aref movers i) 3)))
 
 				(vec2_set friction (tref (aref movers i) 1))
 				(vec2_scale friction -1.0)
@@ -40,17 +36,45 @@
 				(apply_force (aref movers i) gravity)
 
 				(update (aref movers i))
+
+				(fill (* i 50) (* i i 10) (* (- 10 i) 15)) 
 				(display (aref movers i))
 				(check_edges (aref movers i))))))
 
 
-(bind-val test vec 2)
+;; initialize movers
+(bind-func setup
+	(lambda ()
+		(doloop (i 5:i64)
+			(aset! movers i 
+				(Mover 
+					(rand_range 0.1 4.0) 
+					(rand_max width) 
+					0. 
+					(get_note (+ (ftoi64 (rand_max 7.)) (* i 4)) 4))))))
 
-(xtmX (vec2_set test 1.0 2.0))
+(setup)
 
-(bind-val test2 vec 2)
+;; highlevel sheeit
+(define backbeat)
+  (lambda (beat dur)
+  	(if (= 0 (modulo beat 4))
+      (play drums kick  130 dur))
 
-(xtmX (vec2_set test2 test))
+  	(if (= 2 (modulo beat 4))
+      (play drums snare  130 dur))
+
+		(if (= 0 (modulo beat 16))
+      (setup))
+    
+    (if (= 0 (modulo beat 3/2))
+      (play drums (random '(11 11 11 12)) (random 80 90) dur))
+    
+
+   (callback (*metro* (+ beat (* 0.5 dur))) 'backbeat (+ beat dur) dur)
+))
+
+(define *metro* (make-metro 80))
+(backbeat (*metro* 'get-beat 1) 1/2)
 
 
-(xtmX (pref (tref (aref movers 1) 1) 0))

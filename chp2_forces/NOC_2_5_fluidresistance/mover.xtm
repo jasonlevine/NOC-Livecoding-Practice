@@ -47,3 +47,7 @@
         (vec2_set_y (tref m 1) (* (vec2_get_y (tref m 1)) -0.9)) ;;A little dampening when hitting the bottom
         (vec2_set_y (tref m 0) height)))
     void))
+
+(bind-func height_to_pitch
+  (lambda (m:Mover* min:float max:float)
+    (+ min (* (- 1.0 (/ (vec2_get_y (tref m 0)) height)) (- max min)))))

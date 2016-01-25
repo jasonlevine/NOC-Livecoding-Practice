@@ -1,9 +1,9 @@
 (bind-val width float 800.)
-(bind-val height float 200.)
+(bind-val height float 1080.)
 
 (sys:load "The-Nature-of-Livecoding/processing.xtm")
-(sys:load "The-Nature-of-Livecoding/chp2_forces/NOC_2_5_fluidresistance/mover.xtm")
-(sys:load "The-Nature-of-Livecoding/chp2_forces/NOC_2_5_fluidresistance/liquid.xtm")
+(sys:load "NOC-Livecoding-Practice/chp2_forces/NOC_2_5_fluidresistance/mover.xtm")
+(sys:load "NOC-Livecoding-Practice/chp2_forces/NOC_2_5_fluidresistance/liquid.xtm")
 
 ;;setup and initialize vars
 (bind-val movers |11,Mover*|*)
@@ -12,12 +12,48 @@
 (bind-func setup
 	(lambda ()
 		(doloop (i 11:i64)
-			(aset! movers i (Mover (rand_range 1.0 4.0) (rand_max width) 0.)))
+			(aset! movers i (Mover (rand_range 0.1 10.0) (rand_max width) 0.)))
 
 		(set! liquid (Liquid 0. (/ height 2.) width (/ height 2.) 0.1))
 		void))
 
 (setup)
+
+;;audio
+;;oscillator
+(bind-func osc_c
+  (lambda (phase)
+    (lambda (amp freq:SAMPLE)
+      (let ((incr (* 2.0 3.1415 (/ freq 44100.))))
+        (set! phase (% (+ phase incr) (* 2.0 3.1415)))
+        (* amp (sin phase))))))
+
+
+;;dsp
+(bind-func dsp:[SAMPLE,SAMPLE,i64,i64,SAMPLE*]*
+	(let ((osc_array:|11,[SAMPLE,SAMPLE,SAMPLE]*|* (alloc))
+				(i 0))
+		(dotimes (i 11)
+      (aset! osc_array i (osc_c 0.0)))
+     
+    (lambda (in:SAMPLE time:i64 chan:i64 dat:SAMPLE*)
+      (cond ((= chan 0)
+              (let ((suml 0.0))
+               (dotimes (i 11)
+                 (set! suml (+ suml ((aref osc_array i) 
+                 										 (* 0.5 (/ (vec2_get_x (tref (aref movers i) 0)) width))
+                                     (height_to_pitch (aref movers i) 60. 400.)))))
+               (/ suml 11.0)))
+      			((= chan 1)
+              (let ((sumr 0.0))
+               (dotimes (i 11)
+                 (set! sumr (+ sumr ((aref osc_array i) 
+                 										 (* 0.5 (/ (vec2_get_x (tref (aref movers i) 0)) width))
+                                     (height_to_pitch (aref movers i) 60. 400.)))))
+               (/ sumr 11.0)))
+            (else 0.0)))))
+
+(dsp:set! dsp)
 
 
 (bind-func draw
@@ -39,7 +75,7 @@
 
 			;; Gravity is scaled by mass here!
 			(let ((gravity:vec (salloc 2)))
-				(vec2_set gravity 0.0 (* 0.1 (tref (aref movers i) 3)))
+				(vec2_set gravity 0.0 (* 0.5 (tref (aref movers i) 3)))
 				(apply_force (aref movers i) gravity))
 
 			(update (aref movers i))

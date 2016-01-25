@@ -1,10 +1,10 @@
 
 ;; Mover data type: location, velocity, accleration, mass 
-(bind-type Mover <float*,float*,float*,float>)
+(bind-type Mover <float*,float*,float*,float,i8>)
 
 ;; Constructor for the 2-dimensional case
-(bind-func Mover_2D:[Mover*,float,float,float]*
-  (lambda (mass x y)
+(bind-func Mover_2D:[Mover*,float,float,float,i8]*
+  (lambda (mass:float x:float y:float note:i8)
     (let
         ((location (zalloc 2))
          (velocity (zalloc 2))
@@ -12,7 +12,7 @@
       (pfill! location x y)
       (pfill! velocity 0.0:float 0.0:float)
       (pfill! accel 0.0:float 0.0:float)
-      (Mover location velocity accel mass))))
+      (Mover location velocity accel mass note))))
 
 ;; Overload the default constructor
 (bind-poly Mover Mover_2D)
@@ -33,22 +33,31 @@
   (lambda (m:Mover*)
     (stroke 0. 0. 0. 1.)
     (stroke_width 2.)
-    (fill 0.5 0.5 0.5 1.0)
-    (circle (vec2_get_x (tref m 0)) (vec2_get_y (tref m 0)) (* (tref m 3) 16.))))
+    ;(fill 127)
+    (circle (vec2_get_x (tref m 0)) (vec2_get_y (tref m 0)) (* (tref m 3) 16.) )))
 
 (bind-func check_edges
   (lambda (m:Mover*)
-    (cond 
-      ((> (vec2_get_x (tref m 0)) width) 
+    (if (> (vec2_get_x (tref m 0)) width) 
       (begin
-        (vec2_set_x (tref m 0) width)
-        (vec2_set_x (tref m 1) (* (vec2_get_x (tref m 1)) -1.0))))
+        (vec2_set_x (tref m 0) 0.)))
+        ;(vec2_set_x (tref m 1) (* (vec2_get_x (tref m 1)) -1.0))))
 
-      ((< (vec2_get_x (tref m 0)) 0.0)
+    (if (< (vec2_get_x (tref m 0)) 0.) 
       (begin
-        (vec2_set_x (tref m 0) 0.0)
-        (vec2_set_x (tref m 1) (* (vec2_get_x (tref m 1)) -1.0)))))
+        (vec2_set_x (tref m 0) width)))
+        ;(vec2_set_x (tref m 1) (* (vec2_get_x (tref m 1)) -1.0))))
+
 
     (if (> (vec2_get_y (tref m 0)) height)
-      (vec2_set_y (tref m 1) (* (vec2_get_y (tref m 1)) -1.0)))
+      (begin
+        (vec2_set_y (tref m 0) height)
+        (vec2_set_y (tref m 1) (* (vec2_get_y (tref m 1)) -1.0))
+
+        (let ((nargs:float* (salloc 2))
+              (freq:float (midi2frq (convert (tref m 4))))
+              (amp:float (/ (vec2_mag (tref m 1)) 4.))
+              (dur:i64 (* 3 44100)))
+          (pset! nargs 1 (/ (vec2_get_x (tref m 0)) width)) ;
+        (xtm_play_note (now) piano freq amp dur 2 nargs))))
     void))
